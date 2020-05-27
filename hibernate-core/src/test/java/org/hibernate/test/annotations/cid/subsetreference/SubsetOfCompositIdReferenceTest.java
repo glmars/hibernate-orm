@@ -1,16 +1,21 @@
 package org.hibernate.test.annotations.cid.subsetreference;
 
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+
 import org.hibernate.AnnotationException;
 import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;
+import org.hibernate.mapping.Table;
+import org.hibernate.mapping.UniqueKey;
 import org.hibernate.service.ServiceRegistry;
 
 import org.junit.Test;
 
 import org.hibernate.testing.ServiceRegistryBuilder;
 
-import static junit.framework.Assert.assertEquals;
-import static junit.framework.TestCase.fail;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
 public class SubsetOfCompositIdReferenceTest {
 
@@ -32,12 +37,45 @@ public class SubsetOfCompositIdReferenceTest {
 		buildSessionFactory(ReferencePK.class, Reference.class, SampleReference.class, Order.class);
 	}
 
-	private void buildSessionFactory(Class<?>... entities) {
-		Configuration cfg = new Configuration();
-		for ( Class<?> entity : entities ) {
-			cfg.addAnnotatedClass(entity);
+	@Test
+	public void testNoFKToRootClassTable() throws Exception {
+		Configuration cfg = buildMappings( ReferencePK.class, Reference.class, SampleReference.class, Order.class );
+
+		Table order = getTable( "Order", cfg );
+		Iterator iter = order.getForeignKeyIterator();
+
+		if ( iter.hasNext() ) {
+			fail("Link source table has foreign key to root class table because of link to subclass entity: " + iter.next().toString());
 		}
-		cfg.buildMappings();
+	}
+
+	@Test
+	public void testNoUniqueKeyInRootClassTable() throws Exception {
+		Configuration cfg = buildMappings( ReferencePK.class, Reference.class, SampleReference.class, Order.class );
+
+		Table reference = getTable( "Reference", cfg );
+		Iterator<UniqueKey> iter = reference.getUniqueKeyIterator();
+		
+		if ( iter.hasNext() ) {
+			fail("Root class table has unique index because of link to subclass entity: " + iter.next().toString());
+		}
+	}
+
+	private Table getTable(String tableName, Configuration cfg) {
+		Iterator<Table> tableMappings = cfg.getTableMappings();
+		
+		while(tableMappings.hasNext()) {
+			Table table = tableMappings.next();
+			if ( tableName.equals( table.getName() ) ) {
+				return table;
+			}
+		}
+		
+		throw new NoSuchElementException( tableName );
+	}
+	
+	private void buildSessionFactory(Class<?>... entities) {
+		Configuration cfg = buildMappings( entities );
 
 		ServiceRegistry serviceRegistry = null;
 		SessionFactory sessionFactory = null;
@@ -53,5 +91,15 @@ public class SubsetOfCompositIdReferenceTest {
 				ServiceRegistryBuilder.destroy( serviceRegistry );
 			}
 		}
+	}
+	
+	private Configuration buildMappings(Class<?>... entities) {
+		Configuration cfg = new Configuration();
+		for ( Class<?> entity : entities ) {
+			cfg.addAnnotatedClass(entity);
+		}
+		cfg.buildMappings();
+		
+		return cfg;
 	}
 }

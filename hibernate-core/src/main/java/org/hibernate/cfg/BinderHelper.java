@@ -297,8 +297,16 @@ public class BinderHelper {
 				synthProp.setValue( embeddedComp );
 				synthProp.setPropertyAccessorName( "embedded" );
 				ownerEntity.addProperty( synthProp );
-				//make it unique
-				TableBinder.createUniqueConstraint( embeddedComp );
+
+                //make it unique
+				boolean needCreateUniqueConstraint = true;
+				if ( columnOwner instanceof PersistentClass && ( (PersistentClass) columnOwner ).isInherited() ) {
+					needCreateUniqueConstraint = false;
+				}
+				
+				if ( needCreateUniqueConstraint ) {
+					TableBinder.createUniqueConstraint( embeddedComp );
+				}
 			}
 			else {
 				//TODO use a ToOne type doing a second select
