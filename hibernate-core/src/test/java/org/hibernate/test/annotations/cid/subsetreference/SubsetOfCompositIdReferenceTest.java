@@ -5,6 +5,9 @@ import java.util.NoSuchElementException;
 
 import org.hibernate.AnnotationException;
 import org.hibernate.SessionFactory;
+import org.hibernate.boot.MetadataSources;
+import org.hibernate.boot.registry.StandardServiceRegistry;
+import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
 import org.hibernate.cfg.Configuration;
 import org.hibernate.mapping.Table;
 import org.hibernate.mapping.UniqueKey;
@@ -39,9 +42,7 @@ public class SubsetOfCompositIdReferenceTest {
 
 	@Test
 	public void testNoFKToRootClassTable() throws Exception {
-		Configuration cfg = buildMappings( ReferencePK.class, Reference.class, SampleReference.class, Order.class );
-
-		Table order = getTable( "Order", cfg );
+		Table order = getTable( "Order", ReferencePK.class, Reference.class, SampleReference.class, Order.class );
 		Iterator iter = order.getForeignKeyIterator();
 
 		if ( iter.hasNext() ) {
@@ -51,9 +52,7 @@ public class SubsetOfCompositIdReferenceTest {
 
 	@Test
 	public void testNoUniqueKeyInRootClassTable() throws Exception {
-		Configuration cfg = buildMappings( ReferencePK.class, Reference.class, SampleReference.class, Order.class );
-
-		Table reference = getTable( "Reference", cfg );
+		Table reference = getTable( "Reference", ReferencePK.class, Reference.class, SampleReference.class, Order.class );
 		Iterator<UniqueKey> iter = reference.getUniqueKeyIterator();
 		
 		if ( iter.hasNext() ) {
@@ -61,8 +60,9 @@ public class SubsetOfCompositIdReferenceTest {
 		}
 	}
 
-	private Table getTable(String tableName, Configuration cfg) {
-		Iterator<Table> tableMappings = cfg.getTableMappings();
+	private Table getTable(String tableName, Class<?>... entities) {
+		java.util.Collection<Table> tables = buildMetadataSources(entities).buildMetadata().collectTableMappings();
+		Iterator<Table> tableMappings = tables.iterator();
 		
 		while(tableMappings.hasNext()) {
 			Table table = tableMappings.next();
@@ -75,7 +75,7 @@ public class SubsetOfCompositIdReferenceTest {
 	}
 	
 	private void buildSessionFactory(Class<?>... entities) {
-		Configuration cfg = buildMappings( entities );
+		Configuration cfg = new Configuration(buildMetadataSources(entities));
 
 		ServiceRegistry serviceRegistry = null;
 		SessionFactory sessionFactory = null;
@@ -92,14 +92,14 @@ public class SubsetOfCompositIdReferenceTest {
 			}
 		}
 	}
-	
-	private Configuration buildMappings(Class<?>... entities) {
-		Configuration cfg = new Configuration();
+
+	private MetadataSources buildMetadataSources(Class<?>[] entities) {
+		StandardServiceRegistry ssr = new StandardServiceRegistryBuilder().build();
+		MetadataSources metadataSrc = new MetadataSources( ssr );
 		for ( Class<?> entity : entities ) {
-			cfg.addAnnotatedClass(entity);
+			metadataSrc.addAnnotatedClass(entity);
 		}
-		cfg.buildMappings();
-		
-		return cfg;
+
+		return metadataSrc;
 	}
 }
